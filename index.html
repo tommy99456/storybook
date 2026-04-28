@@ -1,0 +1,279 @@
+﻿<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Page 1-10 電子翻頁書</title>
+  <style>
+    :root {
+      --bg1: #1f2a44;
+      --bg2: #8d6f52;
+      --panel: #efe4d5;
+      --ink: #2a2a2a;
+      --accent: #d6834e;
+      --book-shadow: 0 30px 60px rgba(0, 0, 0, 0.35);
+    }
+
+    * { box-sizing: border-box; }
+
+    html, body {
+      margin: 0;
+      width: 100%;
+      height: 100%;
+      font-family: "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", sans-serif;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at 20% 15%, rgba(255, 224, 190, 0.24), transparent 38%),
+        radial-gradient(circle at 80% 75%, rgba(140, 185, 255, 0.22), transparent 45%),
+        linear-gradient(140deg, var(--bg1), var(--bg2));
+      overflow: hidden;
+    }
+
+    .app {
+      width: 100%;
+      height: 100%;
+      display: grid;
+      grid-template-rows: 1fr auto;
+      gap: 14px;
+      padding: 14px;
+    }
+
+    .stage {
+      width: min(100%, calc((100vh - 120px) * (16 / 9)));
+      aspect-ratio: 16 / 9;
+      margin: 0 auto;
+      position: relative;
+      perspective: 2200px;
+      border-radius: 18px;
+      overflow: hidden;
+      box-shadow: var(--book-shadow);
+      background: #1f2024;
+    }
+
+    .book {
+      position: absolute;
+      inset: 0;
+      transform-style: preserve-3d;
+      background: #26262b;
+    }
+
+    .page {
+      position: absolute;
+      inset: 0;
+      transform-origin: left center;
+      transform-style: preserve-3d;
+      backface-visibility: hidden;
+      transition: transform 900ms cubic-bezier(.22, .61, .29, .99), opacity 620ms ease;
+      box-shadow: -8px 0 20px rgba(0,0,0,0.24);
+      cursor: pointer;
+      background: #111;
+    }
+
+    .page::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(to left, rgba(0, 0, 0, 0.26), transparent 35%);
+      opacity: 0;
+      transition: opacity 400ms ease;
+      pointer-events: none;
+    }
+
+    .page.is-turned {
+      transform: rotateY(-165deg);
+      opacity: 0.05;
+      box-shadow: -20px 0 42px rgba(0,0,0,0.35);
+      pointer-events: none;
+    }
+
+    .page.is-turned::after {
+      opacity: 1;
+    }
+
+    .page img {
+      width: 100%;
+      height: 100%;
+      display: block;
+      object-fit: cover;
+      user-select: none;
+      -webkit-user-drag: none;
+    }
+
+    .controls {
+      width: min(100%, 1060px);
+      margin: 0 auto;
+      display: grid;
+      grid-template-columns: 1fr auto 1fr;
+      align-items: center;
+      gap: 10px;
+      padding: 0 4px;
+    }
+
+    .btn {
+      border: none;
+      border-radius: 999px;
+      padding: 10px 20px;
+      background: #f5e6d6;
+      color: #3f2c1f;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+      cursor: pointer;
+      transition: transform 180ms ease, filter 180ms ease, opacity 180ms ease;
+      justify-self: start;
+    }
+
+    #nextBtn { justify-self: end; }
+
+    .btn:hover:not(:disabled) { transform: translateY(-1px); filter: brightness(1.04); }
+    .btn:active:not(:disabled) { transform: translateY(0); }
+    .btn:disabled { opacity: 0.45; cursor: not-allowed; }
+
+    .status {
+      justify-self: center;
+      color: #f6eadf;
+      font-size: 15px;
+      font-weight: 600;
+      text-shadow: 0 1px 2px rgba(0,0,0,0.35);
+      background: rgba(35, 28, 25, 0.4);
+      padding: 7px 14px;
+      border-radius: 999px;
+      backdrop-filter: blur(6px);
+    }
+
+    .hint {
+      position: absolute;
+      left: 50%;
+      bottom: 14px;
+      transform: translateX(-50%);
+      z-index: 20;
+      color: rgba(255,255,255,0.82);
+      font-size: 13px;
+      background: rgba(0,0,0,0.25);
+      padding: 6px 12px;
+      border-radius: 999px;
+    }
+
+    @media (max-width: 900px) {
+      .app { padding: 10px; gap: 8px; }
+      .controls { grid-template-columns: auto 1fr auto; }
+      .btn { padding: 9px 14px; font-size: 14px; }
+      .status { font-size: 14px; }
+      .hint { font-size: 12px; }
+    }
+  </style>
+</head>
+<body>
+  <main class="app">
+    <section class="stage" aria-label="翻頁書畫面">
+      <div class="book" id="book"></div>
+      <div class="hint">可點頁面右側、按方向鍵，或用按鈕翻頁</div>
+    </section>
+
+    <section class="controls" aria-label="翻頁控制">
+      <button class="btn" id="prevBtn" type="button">上一頁</button>
+      <div class="status" id="status">Page 1 / 10</div>
+      <button class="btn" id="nextBtn" type="button">下一頁</button>
+    </section>
+  </main>
+
+  <script>
+    const pages = [
+      "processed/page_01_16x9.png",
+      "processed/page_02_16x9.png",
+      "processed/page_03_16x9.png",
+      "processed/page_04_16x9.png",
+      "processed/page_05_16x9.png",
+      "processed/page_06_16x9.png",
+      "processed/page_07_16x9.png",
+      "processed/page_08_16x9.png",
+      "processed/page_09_16x9.png",
+      "processed/page_10_16x9.png"
+    ];
+
+    const book = document.getElementById("book");
+    const prevBtn = document.getElementById("prevBtn");
+    const nextBtn = document.getElementById("nextBtn");
+    const statusEl = document.getElementById("status");
+
+    const pageEls = [];
+
+    pages.forEach((src, idx) => {
+      const page = document.createElement("article");
+      page.className = "page";
+      page.style.zIndex = String(pages.length - idx);
+
+      const img = document.createElement("img");
+      img.src = src;
+      img.alt = `Page ${idx + 1}`;
+      page.appendChild(img);
+
+      // Click right half to next, left half to prev.
+      page.addEventListener("click", (event) => {
+        const rect = page.getBoundingClientRect();
+        const isRight = (event.clientX - rect.left) > rect.width * 0.5;
+        if (isRight) {
+          next();
+        } else {
+          prev();
+        }
+      });
+
+      pageEls.push(page);
+      book.appendChild(page);
+    });
+
+    let currentIndex = 0;
+    let isAnimating = false;
+
+    function updateControls() {
+      prevBtn.disabled = currentIndex <= 0;
+      nextBtn.disabled = currentIndex >= pages.length - 1;
+      statusEl.textContent = `Page ${currentIndex + 1} / ${pages.length}`;
+    }
+
+    function next() {
+      if (isAnimating || currentIndex >= pages.length - 1) return;
+
+      isAnimating = true;
+      const currentPage = pageEls[currentIndex];
+      currentPage.classList.add("is-turned");
+
+      const onDone = () => {
+        currentPage.removeEventListener("transitionend", onDone);
+        currentIndex += 1;
+        isAnimating = false;
+        updateControls();
+      };
+
+      currentPage.addEventListener("transitionend", onDone);
+    }
+
+    function prev() {
+      if (isAnimating || currentIndex <= 0) return;
+
+      isAnimating = true;
+      const pageToRestore = pageEls[currentIndex - 1];
+      pageToRestore.classList.remove("is-turned");
+
+      const onDone = () => {
+        pageToRestore.removeEventListener("transitionend", onDone);
+        currentIndex -= 1;
+        isAnimating = false;
+        updateControls();
+      };
+
+      pageToRestore.addEventListener("transitionend", onDone);
+    }
+
+    prevBtn.addEventListener("click", prev);
+    nextBtn.addEventListener("click", next);
+
+    window.addEventListener("keydown", (e) => {
+      if (e.key === "ArrowRight") next();
+      if (e.key === "ArrowLeft") prev();
+    });
+
+    updateControls();
+  </script>
+</body>
+</html>
